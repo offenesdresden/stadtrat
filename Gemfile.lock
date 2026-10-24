@@ -1,0 +1,67 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    addressable (2.8.7)
+      public_suffix (>= 2.0.2, < 7.0)
+    base64 (0.2.0)
+    connection_pool (2.5.0)
+    csv (3.3.5)
+    date (3.4.1)
+    domain_name (0.6.20240107)
+    http-cookie (1.0.8)
+      domain_name (~> 0.5)
+    influxdb (0.8.1)
+    logger (1.7.0)
+    mechanize (2.14.0)
+      addressable (~> 2.8)
+      base64
+      domain_name (~> 0.5, >= 0.5.20190701)
+      http-cookie (~> 1.0, >= 1.0.3)
+      mime-types (~> 3.3)
+      net-http-digest_auth (~> 1.4, >= 1.4.1)
+      net-http-persistent (>= 2.5.2, < 5.0.dev)
+      nkf
+      nokogiri (~> 1.11, >= 1.11.2)
+      rubyntlm (~> 0.6, >= 0.6.3)
+      webrick (~> 1.7)
+      webrobots (~> 0.1.2)
+    mime-types (3.6.2)
+      logger
+      mime-types-data (~> 3.2015)
+    mime-types-data (3.2025.0325)
+    mini_portile2 (2.8.8)
+    net-ftp (0.3.8)
+      net-protocol
+      time
+    net-http-digest_auth (1.4.1)
+    net-http-persistent (4.0.5)
+      connection_pool (~> 2.2)
+    net-protocol (0.2.2)
+      timeout
+    nkf (0.2.0)
+    nokogiri (1.18.7)
+      mini_portile2 (~> 2.8.2)
+      racc (~> 1.4)
+    open4 (1.3.4)
+    public_suffix (6.0.1)
+    racc (1.8.1)
+    rubyntlm (0.6.5)
+      base64
+    time (0.4.1)
+      date
+    timeout (0.4.3)
+    webrick (1.9.1)
+    webrobots (0.1.2)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  csv
+  influxdb
+  mechanize
+  net-ftp
+  open4
+
+BUNDLED WITH
+   2.5.22

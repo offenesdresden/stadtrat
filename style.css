@@ -1,0 +1,42 @@
+body {
+    background-color: #c7c7c7;
+}
+a {
+    text-decoration: none;
+}
+h1, h2 {
+    text-align: center;
+}
+article, nav {
+    margin: 4rem auto;
+    max-width: 40rem;
+    padding: 2rem 6rem;
+    background-color: #eee;
+    border: 1px solid #333;
+    border-radius: 0.3rem;
+    line-height: 180%;
+}
+nav ul {
+    background-color: #fff;
+    border: 1px solid #333;
+    border-radius: 0.3rem;
+    padding: 2rem 2rem;
+}
+aside {
+    text-align: center;
+}
+.timestamp {
+    font-size: 80%;
+    text-align: center;
+    color: #aaa;
+    margin: 2rem;
+}
+.speaker {
+    font-size: 100%;
+    float: left;
+    margin: 0 1rem 0 -3rem;
+    border-radius: 1rem;
+    padding: 1px 0.5rem;
+    line-height: 100%;
+    background-color: white;
+}
