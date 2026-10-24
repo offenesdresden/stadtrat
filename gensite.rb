@@ -27,7 +27,7 @@ def format_time(time)
 end
 
 class Subtitle
-  attr_accessor :start, :stop, :lines, :person
+  attr_accessor :start, :stop, :lines, :person, :speaker
 
   def initialize start, stop
     @start = start
@@ -90,6 +90,21 @@ def read_metadata(input)
   result.select { |subtitle| subtitle.lines.any? { |line| not line.empty? } }
 end
 
+def read_whisper_json(input)
+  JSON.parse(input.read)["segments"].collect { |segment|
+    subtitle = Subtitle.new segment["start"], segment["end"]
+    subtitle.lines << segment["text"]
+    speaker_count = {}
+    segment["words"].each do |word|
+      next unless word["speaker"]
+      speaker_count[word["speaker"]] ||= 0
+      speaker_count[word["speaker"]] += 1
+    end
+    subtitle.speaker = speaker_count.keys.sort_by { |speaker| speaker_count[speaker] }.last
+    subtitle
+  }
+end
+
 class Meeting
   attr_accessor :title, :id, :chapters, :transcript, :ocr
 
@@ -102,10 +117,11 @@ class Meeting
   end
 
   def summarize!(all_agendaitems)
+    # Find persons by OCR
     STDERR.puts "Personalizing #{@transcript.size} transcripts"
     personalized_transcript = @transcript.collect do |subtitle|
       ocr = @ocr.find { |ocr|
-        subtitle.start <= ocr.stop and subtitle.stop >= ocr.start - 30
+        subtitle.start <= ocr.stop and subtitle.stop >= ocr.start
       }
       if ocr
         subtitle.person = ocr.person or ocr
@@ -115,6 +131,17 @@ class Meeting
       subtitle
     end
 
+    # Interpolate unknown persons by speaker identified through diarization.
+    known_speakers = {}
+    personalized_transcript.reverse_each do |subtitle|
+      if subtitle.person and subtitle.speaker
+        known_speakers[subtitle.speaker] = subtitle.person
+      elsif subtitle.speaker and known_speakers[subtitle.speaker]
+        subtitle.person = known_speakers[subtitle.speaker]
+      end
+    end
+
+    # Group by chapter
     @chapters.collect do |chapter|
       agendaitem = all_agendaitems.sort_by { |agendaitem|
         DidYouMean::Levenshtein.distance(chapter.text, agendaitem["name"])
@@ -123,7 +150,8 @@ class Meeting
       if agendaitem["consultation"]
         consultation = JSON.parse File::read(RATSINFO_DATA + "/consultations/" + agendaitem["consultation"].split("/").last + ".json")
       end
-      
+
+      # Group by speaker
       transcripts = []
       personalized_transcript.each do |subtitle|
         next unless subtitle.start >= chapter.start and subtitle.stop <= chapter.stop
@@ -272,7 +300,8 @@ json["playlist_src"].each do |entry|
   STDERR.puts "Oparl meeting: #{oparl_meeting["id"]}"
   meeting = Meeting.new(id, entry["name"])
   meeting.chapters = read_vtt File.open("#{id}_chapters.vtt")
-  meeting.transcript = read_vtt File.open("#{id}_speech/hls.srt")
+  # meeting.transcript = read_vtt File.open("#{id}_speech/hls.srt")
+  meeting.transcript = read_whisper_json File.open("#{id}_speech/hls.json")
   read_metadata(File.open("#{id}_ocr.txt")).each do |subtitle|
     subtitle.person = find_person(subtitle.text.split(",").first)
 
