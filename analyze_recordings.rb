@@ -5,6 +5,18 @@ require 'open-uri'
 require 'json'
 require 'chunky_png'
 
+class Array
+  def median
+    sorted = self.sort
+    mid = (sorted.length - 1) / 2.0
+    (sorted[mid.floor] + sorted[mid.ceil]) / 2
+  end
+end
+
+def str_distance a, b
+  DidYouMean::Levenshtein.distance a.downcase, b.downcase
+end
+
 json = JSON.parse File.read("recordings.json")
 json["playlist_src"].each do |entry|
   id = entry["media_id"]
@@ -164,6 +176,7 @@ json["playlist_src"].each do |entry|
             x2 = data2["left"]
             y2 = data2["top"]
             if not(data1["text"].start_with? "[") and data2["text"].start_with? "[" and
+              not(data1["text"].end_with? "]") and data2["text"].end_with? "]" and
               x1 - 4 < x2 and x1 + 4 > x2 and
               y1 - 6 < y2 and y1 + 8 > y2
 
@@ -176,26 +189,9 @@ json["playlist_src"].each do |entry|
         end
 
         # Look for vote color.
-        image = ChunkyPNG::Image.from_file(filename)
         voters.collect! do |vote|
-          x = vote[:person]["left"] - 2 * (vote[:fraction]["top"] - vote[:person]["top"])
-          y = vote[:fraction]["top"]
-          pixel = image[x, y]
-          r = ChunkyPNG::Color.r(pixel)
-          g = ChunkyPNG::Color.g(pixel)
-          b = ChunkyPNG::Color.b(pixel)
-          choice = if r > 5 * g and r > 5 * b
-                     :no
-                   elsif g > 5 * r and g > 5 * b
-                     :yes
-                   elsif r > 5 * b and g > 5 * b
-                     :neutral
-                   else
-                     STDERR.puts "Unknown vote color: ##{[r, g, b].map { |c| c.to_s(16).rjust(2, "0") }.join ""}"
-                   end
-          { :person => vote[:person]["text"],
-            :fraction => vote[:fraction]["text"].sub(/^\[/, "").sub(/\]$/, ""),
-            :choice => choice,
+          { :person => vote[:person],
+            :fraction => vote[:fraction],
           }
         end
         frame_times = filename.split("_")[1..2].map(&:to_i)
@@ -204,15 +200,99 @@ json["playlist_src"].each do |entry|
           :time => frame_times[0] + frame_times[1] / 25.0,
           :image => filename,
         }
-        STDERR.puts "Recognized a poll with " + [:yes, :no, :neutral].map { |choice|
-          "#{choice}: #{voters.select { |voter| voter[:choice] == choice }
-          .size}"
-        }.join(" ")
+        STDERR.puts "Recognized a poll with #{voters.size} voters"
         break
       end
     end
 
-    polls.sort_by! { |poll| poll["time"] }
+    # Group all polls+voter by coords
+    voters = []
+    STDERR.puts "Grouping voters from #{polls.size} polls"
+    polls.each do |poll|
+      poll[:voters].each do |voter|
+        x1 = voter[:person]["left"]
+        y1 = voter[:person]["top"]
+        found = false
+        voters.each do |votes|
+          x2 = votes[0][:person]["left"]
+          y2 = votes[0][:person]["top"]
+          # if str_distance(votes[0][:person]["text"], voter[:person]["text"]) < 4 and
+          #   str_distance(votes[0][:fraction]["text"], voter[:fraction]["text"]) < 4 and
+          if x1 + 16 > x2 and x1 - 16 < x2 and
+            y1 + 8 > y2 and y1 - 8 < y2
+
+            # Merge
+            votes << voter
+            found = true
+            break
+          end
+        end
+        # Append unmerged
+        voters << [voter] unless found
+      end
+    end
+    voters.collect! do |votes|
+      # Use most-frequent text
+      persons = {}
+      votes.each do |vote|
+        person = vote[:person]["text"]
+        persons[person] ||= 0
+        score = person =~ /[,;]/ ? 0.2 : 1
+        persons[person] += score
+      end
+      person = persons.keys.sort_by { |person| persons[person] }.last
+
+      fractions = {}
+      votes.each do |vote|
+        fraction = vote[:fraction]["text"].gsub(/[\[\]]/, "")
+        fractions[fraction] ||= 0
+        fractions[fraction] += 1
+      end
+      fraction = fractions.keys.sort_by { |fraction| fractions[fraction] }.last
+
+      # Median for coords
+      { :person => person,
+        :fraction => fraction,
+        :left => votes.collect { |vote| vote[:person]["left"] }.median,
+        :top => votes.collect { |vote| vote[:person]["top"] }.median,
+      }
+    end
+    STDERR.puts "Found #{voters.size} voters"
+
+    # Recognize choices by color
+    polls.collect! do |poll|
+      image = ChunkyPNG::Image.from_file(poll[:image])
+
+      poll[:voters] = voters.collect do |voter|
+        x = voter[:left] - 16
+        y = voter[:top] + 16
+        pixel = image[x, y]
+        r = ChunkyPNG::Color.r(pixel)
+        g = ChunkyPNG::Color.g(pixel)
+        b = ChunkyPNG::Color.b(pixel)
+        choice = if r > 5 * g and r > 5 * b
+                   :no
+                 elsif g > 5 * r and g > 5 * b
+                   :yes
+                 elsif r > 5 * b and g > 5 * b
+                   :neutral
+                 else
+                   STDERR.puts "Unknown vote color: ##{[r, g, b].map { |c| c.to_s(16).rjust(2, "0") }.join ""}"
+                 end
+        {
+          :person => voter[:person],
+          :fraction => voter[:fraction],
+          :choice => choice,
+        }
+      end
+      STDERR.puts "Recognized a poll with " + [:yes, :no, :neutral, nil].map { |choice|
+        "#{choice}: #{poll[:voters].select { |voter| voter[:choice] == choice }
+          .size}"
+      }.join(" ")
+      poll
+    end
+
+    polls.sort_by! { |poll| poll[:time] }
     File.write("#{id}_polls.json", polls.to_json)
   end
 
