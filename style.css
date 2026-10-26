@@ -1,5 +1,6 @@
-body {
+bbody {
     background-color: #c7c7c7;
+    font-family: sans-serif;
 }
 a {
     text-decoration: none;
@@ -8,35 +9,120 @@ h1, h2 {
     text-align: center;
 }
 article, nav {
-    margin: 4rem auto;
-    max-width: 40rem;
-    padding: 2rem 6rem;
+    margin: 2rem auto;
+    max-width: 60rem;
+    padding: 0;
     background-color: #eee;
-    border: 1px solid #333;
+    border: 1px solid #555;
     border-radius: 0.3rem;
     line-height: 180%;
 }
 nav ul {
     background-color: #fff;
-    border: 1px solid #333;
-    border-radius: 0.3rem;
+    margin: 2rem 0;
     padding: 2rem 2rem;
+}
+nav p {
+    text-align: center;
 }
 aside {
     text-align: center;
 }
 .timestamp {
     font-size: 80%;
+    font-family: serif;
+    letter-spacing: 0.2rem;
     text-align: center;
     color: #aaa;
     margin: 2rem;
 }
 .speaker {
-    font-size: 100%;
     float: left;
-    margin: 0 1rem 0 -3rem;
-    border-radius: 1rem;
+    margin: 0 1rem 0 0;
     padding: 1px 0.5rem;
     line-height: 100%;
-    background-color: white;
 }
+.transcript {
+    margin: 1rem 4rem;
+    padding: 0 4rem;
+}
+
+.poll {
+    margin: 2rem 0;
+    padding: 0;
+    text-align: center;
+    line-height: 100%;
+}
+.poll img {
+    max-width: 40rem;
+}
+.poll .group {
+    text-align: left;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: no-wrap;
+    justify-content: flex-start;
+}
+.poll .group.choice-yes {
+    background-color: #afa;
+}
+.poll .group.choice-no {
+    background-color: #faa;
+}
+.poll .group.choice-neutral {
+    background-color: #ffa;
+}
+.poll .group.choice- {
+    background-color: #bbb;
+}
+.choice-yes .meta {
+    color: #080;
+}
+.choice-yes .meta h4 {
+    font-size: 150%;
+}
+.choice-no .meta {
+    color: #a00;
+}
+.choice-no .meta h4 {
+    font-size: 150%;
+}
+.choice-neutral .meta {
+    color: #990;
+}
+.poll .meta {
+    flex: 0 0 7rem;
+    vertical-align: top;
+    text-align: center;
+}
+.poll .meta h4 {
+    margin: 0.5rem 0;
+}
+.poll .meta .count {
+    font-size: 80%;
+    margin: 0.5rem 0;
+}
+.poll .voters {
+    margin: 0.5rem;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    flex-grow: 1;
+}
+.poll .voters li {
+    flex: 0 0 6rem;
+    font-size: 50%;
+    margin: 0.1rem;
+    padding: 0.2rem 0;
+    display: flex;
+    flex-direction: column;
+    text-align: center;
+    line-height: 100%;
+}
+.poll .voters li p {
+    margin: 0.2rem 0;
+    padding: 0;
+}
+

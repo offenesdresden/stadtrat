@@ -13,7 +13,8 @@ pkgs.mkShell {
         buildInputs = oldAttrs.buildInputs ++ [
           pkgs.tesseract
         ];
-      }))
+    }))
+    tesseract
 
     # keep this line if you use bash
     bashInteractive

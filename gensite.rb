@@ -6,6 +6,46 @@ require 'json'
 
 RATSINFO_DATA = "../dresden-ratsinfo"
 
+CHOICES_DE = {
+  "yes" => "Ja",
+  "no" => "Nein",
+  "neutral" => "Enthaltung",
+  nil => "Abwesend",
+}
+
+FRACTION_COLORS = {
+  "SPD" => "#f22",
+  "DIE LINKE." => "#d0b",
+  "GRÜNE" => "#0d0",
+  "CDU" => "#000",
+  "AfD" => "#57f",
+  "BSW" => "#708",
+  "FDP/FB" => "#aa0",
+  "Team Zastrow" => "#9c2",
+  "PVP-Kooperation" => "#f80",
+  "PVP" => "#f80",
+  "fraktionslos" => "#999",
+}
+
+def find_fraction_color(fraction)
+  return nil unless fraction
+
+  key = FRACTION_COLORS.keys.sort_by { |name|
+    str_distance fraction, name
+  }.first
+
+  if str_distance(fraction, key) <= key.length / 3
+    FRACTION_COLORS[key]
+  else
+    STDERR.puts "No such fraction: #{@fraction.inspect}"
+    nil
+  end
+end
+
+def str_distance a, b
+  DidYouMean::Levenshtein.distance a.downcase, b.downcase
+end
+
 def parse_time(s)
   s = s.split(/[\.,]/, 2)
   s[0].split(":").inject(0) { |total, n|
@@ -106,7 +146,7 @@ def read_whisper_json(input)
 end
 
 class Meeting
-  attr_accessor :title, :id, :chapters, :transcript, :ocr
+  attr_accessor :title, :id, :chapters, :transcript, :ocr, :polls
 
   def initialize id, title
     @id = id
@@ -121,22 +161,34 @@ class Meeting
     STDERR.puts "Personalizing #{@transcript.size} transcripts"
     personalized_transcript = @transcript.collect do |subtitle|
       ocr = @ocr.find { |ocr|
-        subtitle.start <= ocr.stop and subtitle.stop >= ocr.start
+        subtitle.start >= ocr.start and subtitle.stop <= ocr.stop
       }
       if ocr
         subtitle.person = ocr.person or ocr
-      else
-        STDERR.puts "No person for #{subtitle.inspect}"
+      # else
+      #   STDERR.puts "No person for #{subtitle.inspect}"
       end
       subtitle
     end
 
-    # Interpolate unknown persons by speaker identified through diarization.
+    # Identify diarization speaker by most OCRed person.
     known_speakers = {}
-    personalized_transcript.reverse_each do |subtitle|
-      if subtitle.person and subtitle.speaker
-        known_speakers[subtitle.speaker] = subtitle.person
-      elsif subtitle.speaker and known_speakers[subtitle.speaker]
+    personalized_transcript.each do |subtitle|
+      if subtitle.person.kind_of? Person and subtitle.speaker
+        known_speakers[subtitle.speaker] ||= {}
+        known = known_speakers[subtitle.speaker]
+        known[subtitle.person.title] ||= 0
+        known[subtitle.person.title] += 1
+      end
+    end
+    known_speakers.transform_values! do |known|
+      person_title = known.keys.sort_by { |person_title| known[person_title] }
+                       .last
+      PEOPLE.find { |person| person.title == person_title }
+    end
+    # Interpolate unknown persons by speaker identified through diarization.
+    personalized_transcript.each do |subtitle|
+      if not(subtitle.person.kind_of? Person) and subtitle.speaker and known_speakers[subtitle.speaker]
         subtitle.person = known_speakers[subtitle.speaker]
       end
     end
@@ -144,21 +196,35 @@ class Meeting
     # Group by chapter
     @chapters.collect do |chapter|
       agendaitem = all_agendaitems.sort_by { |agendaitem|
-        DidYouMean::Levenshtein.distance(chapter.text, agendaitem["name"])
+        str_distance(chapter.text, agendaitem["name"])
       }[0]
-      STDERR.puts "Chapter: #{agendaitem["name"]}"
       if agendaitem["consultation"]
         consultation = JSON.parse File::read(RATSINFO_DATA + "/consultations/" + agendaitem["consultation"].split("/").last + ".json")
       end
 
-      # Group by speaker
+      chapter_polls = polls.select { |poll|
+        poll.time >= chapter.start and poll.time < chapter.stop
+      }
+      STDERR.print "Chapter: #{agendaitem["name"]} "
+      # Group by speaker, inserting chapters
       transcripts = []
       personalized_transcript.each do |subtitle|
+        # Stay within chapter
         next unless subtitle.start >= chapter.start and subtitle.stop <= chapter.stop
 
-        if transcripts.last and transcripts.last[:person] == subtitle.person
+        # Flush polls
+        while chapter_polls[0] and chapter_polls[0].time < subtitle.start
+          STDERR.print 'P'
+          transcripts << {
+            :kind => :poll,
+            :poll => chapter_polls.shift,
+          }
+        end
+
+        if transcripts.last and transcripts.last[:kind] == :transcript and transcripts.last[:person] == subtitle.person
           prev_subtitle = transcripts.last[:subtitles].last
-          if prev_subtitle.stop >= subtitle.start - 1
+          if prev_subtitle.stop >= subtitle.start - 1 or
+            (prev_subtitle.stop >= subtitle.start - 4 and not(prev_subtitle.text =~ /\.$/m))
             # Concatenate paragraph
             prev_subtitle.stop = subtitle.stop
             prev_subtitle.lines += subtitle.lines
@@ -170,18 +236,31 @@ class Meeting
           case subtitle.person
           when Person
             transcripts << {
+              :kind => :transcript,
               :person => subtitle.person,
               :subtitles => [subtitle],
             }
+            STDERR.print '.'
           when Subtitle, NilClass
             transcripts << {
+              :kind => :transcript,
               :person => nil,
               :ocr => subtitle.person,
               :subtitles => [subtitle],
             }
+            STDERR.print '?'
           end
+
+          STDERR.flush
         end
       end
+      transcripts += chapter_polls.collect { |poll|
+        STDERR.print 'p'
+        { :kind => :poll,
+          :poll => poll,
+        }
+      }
+      STDERR.puts "!"
       
       { :title => chapter.text,
         :agendaitem => agendaitem,
@@ -205,31 +284,44 @@ class Person
     s = [@affix, @fraction]
           .compact
           .join ", "
-    @name + (s ? " (#{s})" : "")
+    @name + (s.empty? ? "" : " (#{s})")
   end
 
   def color
-    case @fraction
-    when /spd/i
-      "#f22"
-    when /linke/i
-      "#d0b"
-    when /grüne/i
-      "#0c0"
-    when /cdu/i
-      "#000"
-    when /afd/i
-      "#57f"
-    when /bsw/i
-      "#809"
-    when /fdp/i
-      "#bb0"
-    when /zastrow/i
-      "#bc0"
-    when /pvp/i
-      "#f80"
-    else "#666"
-    end
+    find_fraction_color(@fraction) or "#666"
+  end
+end
+
+class Poll
+  def initialize(json)
+    @json = json
+  end
+
+  def time
+    @json["time"]
+  end
+
+  def image
+    @json["image"]
+  end
+
+  def groups
+    ["yes", "no", "neutral", nil].collect { |choice|
+      voters = @json["voters"]
+                 .select { |voter| voter["choice"] == choice }
+                 .sort_by { |voter| [voter["fraction"].upcase, voter["person"].upcase] }
+                 .collect { |voter|
+        voter["bgcolor"] = find_fraction_color(voter["fraction"]) or "#fff"
+        voter["fgcolor"] = voter["bgcolor"] == "#000" ? "#fff" : "#000"
+        voter
+      }
+      if voters.size > 0
+        { :choice => choice,
+          :count => voters.size,
+          :voters => voters,
+        }
+      end
+    }.compact
   end
 end
 
@@ -268,10 +360,12 @@ end
 STDERR.puts "Loaded #{PEOPLE.size} people"
 
 def find_person(name)
+  return unless name
+
   best_distance = nil
   result = nil
   PEOPLE.each do |person|
-    distance = DidYouMean::Levenshtein.distance person.name, name
+    distance = str_distance person.name, name
     next if best_distance and distance > best_distance
     next if distance.to_f / person.name.length > 0.3
     best_distance = distance
@@ -285,6 +379,7 @@ def find_person(name)
 end
 
 index = []
+used_images = []
 json = JSON.parse File.read("recordings.json")
 json["playlist_src"].each do |entry|
   id = entry["media_id"]
@@ -300,6 +395,8 @@ json["playlist_src"].each do |entry|
   STDERR.puts "Oparl meeting: #{oparl_meeting["id"]}"
   meeting = Meeting.new(id, entry["name"])
   meeting.chapters = read_vtt File.open("#{id}_chapters.vtt")
+  meeting.polls = JSON.parse(File.read("#{id}_polls.json"))
+                    .collect { |poll| Poll::new(poll) }
   # meeting.transcript = read_vtt File.open("#{id}_speech/hls.srt")
   meeting.transcript = read_whisper_json File.open("#{id}_speech/hls.json")
   read_metadata(File.open("#{id}_ocr.txt")).each do |subtitle|
@@ -315,9 +412,9 @@ json["playlist_src"].each do |entry|
   end
   
   summarized = meeting.summarize!(all_agendaitems)
+  videos = entry["sources"].select { |source| source["type"] =~ /^video\// }
 
-  # TODO: css, link to ratsinfo
-  html = ERB::new <<~EOF
+  template = <<~EOF
   <!DOCTYPE html>
   <html lang="de" xml:lang="de">
     <head>
@@ -337,6 +434,12 @@ json["playlist_src"].each do |entry|
           <li><a href="#agendaitem-<%= chapter[:agendaitem]["number"] %>"><%= chapter[:title] %></a></li>
         <% end %>
         </ul>
+
+        <% videos.each do |video| %>
+          <p class="video-link">
+            <a href="<%= video["src"] %>" type="<%= video["type"] %>">Videodatei</a>
+          </p>
+        <% end %>
       </nav>
 
       <% summarized.each do |chapter| %><article>
@@ -348,19 +451,45 @@ json["playlist_src"].each do |entry|
         </aside>
 
         <% chapter[:transcripts].each do |transcript| %>
-          <p class="timestamp"><%= format_time(transcript[:subtitles][0].start) %></p>
+          <% if transcript[:kind] == :poll %>
+            <p class="timestamp"><%= format_time(transcript[:poll].time) %></p>
 
-          <h3 class="speaker" style="border: 4px solid <%= transcript[:person] ? transcript[:person].color : "#999" %>">
-            <% if transcript[:person] %>
-              <%= transcript[:person].title %>
-            <% else %>
-              <span title="<%= transcript[:ocr] ? transcript[:ocr].text : "" %>">
-                Unbekannte Person
-              </span>
+            <div class="poll">
+              <h3>Abstimmung</h3>
+              <img src="<%= transcript[:poll].image %>" alt="Abstimmung im Videomitschnitt" title="Bild der Abstimmung als Grundlage für darunterstehende Stimmerkennung">
+
+              <% transcript[:poll].groups.each do |group| %>
+                <div class="group choice-<%= group[:choice] %>">
+                  <div class="meta">
+                    <h4><%= CHOICES_DE[group[:choice]] %></h4>
+                    <p class="count"><%= group[:count] %> gezählt</p>
+                  </div>
+                  <ul class="voters">
+                    <% group[:voters].each do |voter| %>
+                      <li style="background-color: <%= voter["bgcolor"] %>; color: <%= voter["fgcolor"] %>">
+                        <p class="person"><%= voter["person"] %></p>
+                        <p class="fraction"><%= voter["fraction"] %></p>
+                      </li>
+                    <% end %>
+                  </ul>
+                </div>
+              <% end %>
+            </div>
+          <% else %>
+            <p class="timestamp"><%= format_time(transcript[:subtitles][0].start) %></p>
+
+            <h3 class="speaker" style="border-bottom: 4px solid <%= transcript[:person] ? transcript[:person].color : "#999" %>">
+              <% if transcript[:person] %>
+                <%= transcript[:person].title %>
+              <% else %>
+                <span title="<%= transcript[:ocr] ? transcript[:ocr].text : "" %>">
+                  Unbekannte Person
+                </span>
+              <% end %>
+            </h3>
+            <% transcript[:subtitles].each do |subtitle| %>
+              <p class="transcript"><%= subtitle.text %></p>
             <% end %>
-          </h3>
-          <% transcript[:subtitles].each do |subtitle| %>
-            <p><%= subtitle.text %></p>
           <% end %>
         <% end %>
       </article><% end %>
@@ -370,7 +499,17 @@ json["playlist_src"].each do |entry|
 
   outname = "#{oparl_meeting["id"].split("/").last}.html"
   STDERR.puts "Writing #{outname}"
-  File.write outname, html.result(binding)
+  begin
+    html = ERB::new template
+    File.write outname, html.result(binding)
+  rescue Exception => e
+    puts "Exception: #{e}"
+    line = e.backtrace.grep(/^\(erb\)/)[0].split(':')[1].to_i
+    puts "While evaluating line #{line} of the template:"
+    puts template.split("\n")[line-1]
+    puts "Backtrace: ", e.backtrace
+    exit 1
+  end
 
   index << {
     :name => oparl_meeting["name"],
@@ -396,6 +535,10 @@ html = ERB::new <<~EOF
   <body>
     <h1>Stadtratssitzungen</h1>
 
+    <p class="warning">
+      Alle Inhalte wurden maschinell erfasst und sind deshalb ohne Gewähr.
+    </p>
+
      <% index.each do |meeting| %><article>
       <h2>
         <a href="<%= meeting[:file] %>">
@@ -414,5 +557,8 @@ html = ERB::new <<~EOF
   </body>
 </html>
 EOF
+# TODO: plausible
 
 File.write outname, html.result(binding)
+
+STDERR.puts "Used images: #{used_images.join " "}"
