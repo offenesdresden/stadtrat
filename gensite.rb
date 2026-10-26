@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 # coding: utf-8
 
+require 'date'
 require 'erb'
 require 'json'
 
@@ -10,18 +11,20 @@ CHOICES_DE = {
   "yes" => "Ja",
   "no" => "Nein",
   "neutral" => "Enthaltung",
-  nil => "Abwesend",
+  "absent" => "Abwesend",
+  "recused" => "Abgetreten",
+  nil => "Unbekannt",
 }
 
 FRACTION_COLORS = {
-  "SPD" => "#f22",
-  "DIE LINKE." => "#d0b",
+  "SPD" => "#f33",
+  "DIE LINKE." => "#e0c",
   "GRÜNE" => "#0d0",
   "CDU" => "#000",
-  "AfD" => "#57f",
+  "AfD" => "#88f",
   "BSW" => "#708",
-  "FDP/FB" => "#aa0",
-  "Team Zastrow" => "#9c2",
+  "FDP/FB" => "#cc0",
+  "Team Zastrow" => "#a82",
   "PVP-Kooperation" => "#f80",
   "PVP" => "#f80",
   "fraktionslos" => "#999",
@@ -37,7 +40,6 @@ def find_fraction_color(fraction)
   if str_distance(fraction, key) <= key.length / 3
     FRACTION_COLORS[key]
   else
-    STDERR.puts "No such fraction: #{@fraction.inspect}"
     nil
   end
 end
@@ -205,7 +207,7 @@ class Meeting
       chapter_polls = polls.select { |poll|
         poll.time >= chapter.start and poll.time < chapter.stop
       }
-      STDERR.print "Chapter: #{agendaitem["name"]} "
+      STDERR.puts "Chapter: #{agendaitem["name"]}"
       # Group by speaker, inserting chapters
       transcripts = []
       personalized_transcript.each do |subtitle|
@@ -214,7 +216,6 @@ class Meeting
 
         # Flush polls
         while chapter_polls[0] and chapter_polls[0].time < subtitle.start
-          STDERR.print 'P'
           transcripts << {
             :kind => :poll,
             :poll => chapter_polls.shift,
@@ -240,27 +241,21 @@ class Meeting
               :person => subtitle.person,
               :subtitles => [subtitle],
             }
-            STDERR.print '.'
           when Subtitle, NilClass
             transcripts << {
               :kind => :transcript,
               :person => nil,
-              :ocr => subtitle.person,
+              :ocr => subtitle,
               :subtitles => [subtitle],
             }
-            STDERR.print '?'
           end
-
-          STDERR.flush
         end
       end
       transcripts += chapter_polls.collect { |poll|
-        STDERR.print 'p'
         { :kind => :poll,
           :poll => poll,
         }
       }
-      STDERR.puts "!"
       
       { :title => chapter.text,
         :agendaitem => agendaitem,
@@ -275,7 +270,13 @@ class Person
   attr_accessor :name, :affix, :fraction
 
   def initialize name, affix, fraction
-    @name = name
+    # Drop middle names, they don't occur in OCR either.
+    name_parts = name.split(/\s+/)
+    titles = []
+    while name_parts[0] =~ /\.$/
+      titles << name_parts.shift
+    end
+    @name = (titles + [name_parts.first, name_parts.last]).join " "
     @affix = affix
     @fraction = fraction
   end
@@ -306,7 +307,7 @@ class Poll
   end
 
   def groups
-    ["yes", "no", "neutral", nil].collect { |choice|
+    ["yes", "no", "neutral"].collect { |choice|
       voters = @json["voters"]
                  .select { |voter| voter["choice"] == choice }
                  .sort_by { |voter| [voter["fraction"].upcase, voter["person"].upcase] }
@@ -354,7 +355,12 @@ Dir::foreach(RATSINFO_DATA + "/persons") do |file|
   next unless file =~ /^\d+\.json$/
 
   person = JSON.parse File.read(RATSINFO_DATA + "/persons/" + file)
-  fraction = (person["membership"] or []).collect { |membership| fractions[membership["organization"]] }.compact.first
+  fraction = (person["membership"] or []).select { |membership|
+    fractions.has_key?(membership["organization"]) and
+    (not(membership["endDate"]) or Date.parse(membership["endDate"]) >= Date.today)
+  }.collect { |membership|
+    fractions[membership["organization"]]
+  }.compact.first
   PEOPLE << Person.new(person["name"], person["affix"], fraction)
 end
 STDERR.puts "Loaded #{PEOPLE.size} people"
@@ -374,7 +380,7 @@ def find_person(name)
   if best_distance and best_distance > 2
     STDERR.puts "#{best_distance} #{name.inspect} #{result.name.inspect}"
   end
-  STDERR.puts "Cannot find person for OCR #{name.inspect}" unless result
+  # STDERR.puts "Cannot find person for OCR #{name.inspect}" unless result
   result
 end
 
@@ -385,6 +391,8 @@ json["playlist_src"].each do |entry|
   id = entry["media_id"]
 
   next unless entry["name"] =~ /(\d+)\.\s*(\d+)\.\s*(\d+)/
+  next unless File.exist? "#{id}_chapters.vtt"
+  next unless File.exist? "#{id}_speech/hls.json"
   STDERR.puts "Processing recording #{id}"
   date = [$3, $2, $1].collect { |n| n.rjust(2, "0") }.join "-"
   oparl_meeting = meetings[date]
@@ -400,7 +408,14 @@ json["playlist_src"].each do |entry|
   # meeting.transcript = read_vtt File.open("#{id}_speech/hls.srt")
   meeting.transcript = read_whisper_json File.open("#{id}_speech/hls.json")
   read_metadata(File.open("#{id}_ocr.txt")).each do |subtitle|
-    subtitle.person = find_person(subtitle.text.split(",").first)
+    parts = subtitle.text.split(",")
+    name = parts[0]
+    subtitle.person = find_person(name)
+    # if not subtitle.person and name =~ /[A-Z]\S+ [A-Z]\S+/
+    #   # Invent a person
+    #   STDERR.puts "Inventing person #{name.inspect}"
+    #   PEOPLE << (subtitle.person = Person.new(name, parts[1], nil))
+    # end
 
     # Concatenate by found person
     prev_ocr = meeting.ocr.last
@@ -456,13 +471,13 @@ json["playlist_src"].each do |entry|
 
             <div class="poll">
               <h3>Abstimmung</h3>
-              <img src="<%= transcript[:poll].image %>" alt="Abstimmung im Videomitschnitt" title="Bild der Abstimmung als Grundlage für darunterstehende Stimmerkennung">
+              <!--img src="<%= transcript[:poll].image %>" alt="Abstimmung im Videomitschnitt" title="Bild der Abstimmung als Grundlage für darunterstehende Stimmerkennung"-->
 
               <% transcript[:poll].groups.each do |group| %>
                 <div class="group choice-<%= group[:choice] %>">
                   <div class="meta">
                     <h4><%= CHOICES_DE[group[:choice]] %></h4>
-                    <p class="count"><%= group[:count] %> gezählt</p>
+                    <p class="count"><%= group[:count] %> Stimmen</p>
                   </div>
                   <ul class="voters">
                     <% group[:voters].each do |voter| %>
@@ -493,6 +508,12 @@ json["playlist_src"].each do |entry|
           <% end %>
         <% end %>
       </article><% end %>
+
+      <script async src="https://p.spaceboyz.net/js/pa-qkRTn7-wuUolWOW2bxD9E.js"></script>
+      <script>
+        window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};
+        plausible.init()
+      </script>
     </body>
   </html>
   EOF
@@ -554,6 +575,12 @@ html = ERB::new <<~EOF
         <% end %>
       </ul>
     </article><% end %>
+
+    <script async src="https://p.spaceboyz.net/js/pa-qkRTn7-wuUolWOW2bxD9E.js"></script>
+    <script>
+      window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};
+      plausible.init()
+    </script>
   </body>
 </html>
 EOF

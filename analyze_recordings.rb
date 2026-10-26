@@ -276,6 +276,10 @@ json["playlist_src"].each do |entry|
                    :yes
                  elsif r > 5 * b and g > 5 * b
                    :neutral
+                 elsif [r, g, b].all? { |c| c > 150 }
+                   :absent
+                 elsif [r, g, b].all? { |c| (100..150).include? c }
+                   :recused
                  else
                    STDERR.puts "Unknown vote color: ##{[r, g, b].map { |c| c.to_s(16).rjust(2, "0") }.join ""}"
                  end
@@ -285,8 +289,8 @@ json["playlist_src"].each do |entry|
           :choice => choice,
         }
       end
-      STDERR.puts "Recognized a poll with " + [:yes, :no, :neutral, nil].map { |choice|
-        "#{choice}: #{poll[:voters].select { |voter| voter[:choice] == choice }
+      STDERR.puts "Recognized a poll with " + [:yes, :no, :neutral, :absent, :recused, nil].map { |choice|
+        "#{choice or "nil"}: #{poll[:voters].select { |voter| voter[:choice] == choice }
           .size}"
       }.join(" ")
       poll

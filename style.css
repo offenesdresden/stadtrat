@@ -74,8 +74,11 @@ aside {
 .poll .group.choice-neutral {
     background-color: #ffa;
 }
-.poll .group.choice- {
-    background-color: #bbb;
+.poll .group.choice-absent {
+    background-color: #ccc;
+}
+.poll .group.choice-recused {
+    background-color: #999;
 }
 .choice-yes .meta {
     color: #080;
@@ -101,7 +104,6 @@ aside {
     margin: 0.5rem 0;
 }
 .poll .meta .count {
-    font-size: 80%;
     margin: 0.5rem 0;
 }
 .poll .voters {
@@ -112,17 +114,20 @@ aside {
     flex-grow: 1;
 }
 .poll .voters li {
-    flex: 0 0 6rem;
-    font-size: 50%;
+    flex: 0 0 5.5rem;
     margin: 0.1rem;
     padding: 0.2rem 0;
     display: flex;
     flex-direction: column;
+    justify-content: space-between;
     text-align: center;
     line-height: 100%;
 }
 .poll .voters li p {
     margin: 0.2rem 0;
     padding: 0;
+    font-size: 80%;
 }
-
+.poll .voters li .person {
+    font-weight: bold;
+}
