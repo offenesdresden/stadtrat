@@ -594,6 +594,8 @@ json["playlist_src"].each do |entry|
       {
         :id => "agendaitem-" + chapter[:agendaitem]["number"],
         :title => chapter[:title],
+        :result => chapter[:agendaitem]["result"],
+        :vote => chapter[:agendaitem]["vote"],
       }
     },
   }
@@ -622,10 +624,19 @@ html = ERB::new <<~EOF
         </a>
       </h2>
 
-      <ul>
+      <ul class="agendaitems">
         <% meeting[:chapters].each do |chapter| %>
           <li>
             <a href="<%= meeting[:file] %>#<%= chapter[:id] %>"><%= chapter[:title] %></a>
+            <% if chapter[:vote] %>
+              <span class="vote">
+                <% %w(yes no).select { |choice| chapter[:vote][choice] > 0 }.each do |choice| %>
+                  <span class="choice choice-<%= choice %>" style="flex-basis: <%= (100.0 * chapter[:vote][choice] / (chapter[:vote]["yes"] + chapter[:vote]["no"])).round %>%">
+                    <%= chapter[:vote][choice] %>
+                  </span>
+                <% end %>
+              </span>
+            <% end %>
           </li>
         <% end %>
       </ul>
