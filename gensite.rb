@@ -68,6 +68,18 @@ def format_time(time)
   result
 end
 
+def plural(n, unit)
+  if n != 1
+    unit = case unit
+           when "Stimme"
+             "Stimmen"
+           else
+             "#{unit}s"
+           end
+  end
+  "#{n} #{unit}"
+end
+
 class Subtitle
   attr_accessor :start, :stop, :lines, :person, :speaker
 
@@ -158,7 +170,7 @@ class Meeting
     @ocr = []
   end
 
-  def summarize!(all_agendaitems)
+  def summarize!(agendaitems)
     # Find persons by OCR
     STDERR.puts "Personalizing #{@transcript.size} transcripts"
     personalized_transcript = @transcript.collect do |subtitle|
@@ -197,9 +209,17 @@ class Meeting
 
     # Group by chapter
     @chapters.collect do |chapter|
-      agendaitem = all_agendaitems.sort_by { |agendaitem|
-        str_distance(chapter.text, agendaitem["name"])
-      }[0]
+      if chapter.text =~ /TOP ([\d\.]+)/
+        number = $1
+        agendaitem = agendaitems.find { |agendaitem|
+          agendaitem["number"] == number
+        }
+      else
+        agendaitem = agendaitems.sort_by { |agendaitem|
+          str_distance(chapter.text, "TOP #{agendaitem["number"]} #{agendaitem["name"]}")
+        }[0]
+      end
+
       if agendaitem["consultation"]
         consultation = JSON.parse File::read(RATSINFO_DATA + "/consultations/" + agendaitem["consultation"].split("/").last + ".json")
       end
@@ -207,7 +227,8 @@ class Meeting
       chapter_polls = polls.select { |poll|
         poll.time >= chapter.start and poll.time < chapter.stop
       }
-      STDERR.puts "Chapter: #{agendaitem["name"]}"
+      STDERR.puts "Chapter: #{chapter.text}"
+      STDERR.puts "!= agendaItem: #{agendaitem["name"]}" if str_distance(chapter.text, agendaitem["name"]) > 3
       # Group by speaker, inserting chapters
       transcripts = []
       personalized_transcript.each do |subtitle|
@@ -245,7 +266,6 @@ class Meeting
             transcripts << {
               :kind => :transcript,
               :person => nil,
-              :ocr => subtitle,
               :subtitles => [subtitle],
             }
           end
@@ -289,7 +309,7 @@ class Person
   end
 
   def color
-    find_fraction_color(@fraction) or "#666"
+    find_fraction_color(@fraction) or "#777"
   end
 end
 
@@ -312,7 +332,7 @@ class Poll
                  .select { |voter| voter["choice"] == choice }
                  .sort_by { |voter| [voter["fraction"].upcase, voter["person"].upcase] }
                  .collect { |voter|
-        voter["bgcolor"] = find_fraction_color(voter["fraction"]) or "#fff"
+        voter["bgcolor"] = (find_fraction_color(voter["fraction"]) or "#fff")
         voter["fgcolor"] = voter["bgcolor"] == "#000" ? "#fff" : "#000"
         voter
       }
@@ -335,10 +355,6 @@ Dir::foreach(RATSINFO_DATA + "/meetings") do |file|
   date = Time.new(json["start"]).strftime("%Y-%m-%d")
   meetings[date] = json
 end
-all_agendaitems = meetings.values
-                    .collect { |meeting| meeting["agendaItem"] }
-                    .flatten
-                    .compact
 
 fractions = {}
 Dir::foreach(RATSINFO_DATA + "/gremien") do |file|
@@ -385,14 +401,19 @@ def find_person(name)
 end
 
 index = []
-used_images = []
 json = JSON.parse File.read("recordings.json")
 json["playlist_src"].each do |entry|
   id = entry["media_id"]
 
   next unless entry["name"] =~ /(\d+)\.\s*(\d+)\.\s*(\d+)/
-  next unless File.exist? "#{id}_chapters.vtt"
-  next unless File.exist? "#{id}_speech/hls.json"
+  unless File.exist? "#{id}_chapters.vtt"
+    STDERR.puts "No chapter subtitles for #{id}, skipping."
+    next
+  end
+  unless File.exist? "#{id}_speech/hls.json"
+    STDERR.puts "No speech transcript for #{id}, skipping."
+    next
+  end
   STDERR.puts "Processing recording #{id}"
   date = [$3, $2, $1].collect { |n| n.rjust(2, "0") }.join "-"
   oparl_meeting = meetings[date]
@@ -400,7 +421,7 @@ json["playlist_src"].each do |entry|
     STDERR.puts "No such oparl meeting for #{date}"
     next
   end
-  STDERR.puts "Oparl meeting: #{oparl_meeting["id"]}"
+  STDERR.puts "Oparl meeting: #{oparl_meeting["id"]} (#{date})"
   meeting = Meeting.new(id, entry["name"])
   meeting.chapters = read_vtt File.open("#{id}_chapters.vtt")
   meeting.polls = JSON.parse(File.read("#{id}_polls.json"))
@@ -411,11 +432,11 @@ json["playlist_src"].each do |entry|
     parts = subtitle.text.split(",")
     name = parts[0]
     subtitle.person = find_person(name)
-    # if not subtitle.person and name =~ /[A-Z]\S+ [A-Z]\S+/
-    #   # Invent a person
-    #   STDERR.puts "Inventing person #{name.inspect}"
-    #   PEOPLE << (subtitle.person = Person.new(name, parts[1], nil))
-    # end
+    if not subtitle.person and name =~ /[A-Z]\S+ [A-Z]\S+[$,]/
+      # Invent a person
+      STDERR.puts "Inventing person #{name.inspect}"
+      PEOPLE << (subtitle.person = Person.new(name, parts[1], nil))
+    end
 
     # Concatenate by found person
     prev_ocr = meeting.ocr.last
@@ -425,8 +446,21 @@ json["playlist_src"].each do |entry|
       meeting.ocr << subtitle
     end
   end
-  
-  summarized = meeting.summarize!(all_agendaitems)
+
+  # Find agendaItem list in this or previous meetings
+  agendaitems = oparl_meeting["agendaItem"]
+  agendaitems_date = date
+  while not(agendaitems) or agendaitems == []
+    STDERR.puts "No agendaitems in #{agendaitems_date}"
+    agendaitems_date = meetings.keys.filter { |meeting_date| meeting_date < agendaitems_date }
+                         .sort
+                         .last
+    break unless agendaitems_date
+    agendaitems = meetings[agendaitems_date]["agendaItem"]
+  end
+  STDERR.puts "Found agendaitems in #{agendaitems_date}" if agendaitems_date
+
+  summarized = meeting.summarize!(agendaitems)
   videos = entry["sources"].select { |source| source["type"] =~ /^video\// }
 
   template = <<~EOF
@@ -460,6 +494,7 @@ json["playlist_src"].each do |entry|
       <% summarized.each do |chapter| %><article>
         <h2 id="agendaitem-<%= chapter[:agendaitem]["number"] %>"><%= chapter[:title] %></h2>
         <aside>
+          <p><%= date %></p>
           <% if chapter[:consultation] %>
             <p><a href="https://ratsinfo.dresden.de/vo0050.asp?__kvonr=<%= chapter[:consultation]["paper"].split("/").last %>">Tagesordnungspunkt im Ratsinformationssystem</a></p>
           <% end %>
@@ -477,7 +512,7 @@ json["playlist_src"].each do |entry|
                 <div class="group choice-<%= group[:choice] %>">
                   <div class="meta">
                     <h4><%= CHOICES_DE[group[:choice]] %></h4>
-                    <p class="count"><%= group[:count] %> Stimmen</p>
+                    <p class="count"><%= plural group[:count], "Stimme" %></p>
                   </div>
                   <ul class="voters">
                     <% group[:voters].each do |voter| %>
@@ -497,15 +532,34 @@ json["playlist_src"].each do |entry|
               <% if transcript[:person] %>
                 <%= transcript[:person].title %>
               <% else %>
-                <span title="<%= transcript[:ocr] ? transcript[:ocr].text : "" %>">
-                  Unbekannte Person
-                </span>
+                Unbekannte Person
               <% end %>
             </h3>
             <% transcript[:subtitles].each do |subtitle| %>
               <p class="transcript"><%= subtitle.text %></p>
             <% end %>
           <% end %>
+        <% end %>
+
+        <% if chapter[:agendaitem]["result"] or chapter[:agendaitem]["vote"] %>
+          <div class="resolution">
+            <h3>Beschluss</h4>
+
+            <p class="result">
+              <%= chapter[:agendaitem]["result"] %>
+            </p>
+
+            <% if chapter[:agendaitem]["vote"] %>
+              <div class="vote">
+                <% %w(yes no).select { |choice| chapter[:agendaitem]["vote"][choice] > 0 }.each do |choice| %>
+                  <div class="choice choice-<%= choice %>" style="flex-basis: <%= (100.0 * chapter[:agendaitem]["vote"][choice] / (chapter[:agendaitem]["vote"]["yes"] + chapter[:agendaitem]["vote"]["no"])).round %>%">
+                    <h4><%= CHOICES_DE[choice] %></h4>
+                    <p class="count"><%= plural chapter[:agendaitem]["vote"][choice], "Stimme" %></p>
+                  </div>
+                <% end %>
+              </div>
+            <% end %>
+          </div>
         <% end %>
       </article><% end %>
 
@@ -570,7 +624,7 @@ html = ERB::new <<~EOF
       <ul>
         <% meeting[:chapters].each do |chapter| %>
           <li>
-            <a href="<%= meeting[:file] %>#<%= chapter[:id]"><%= chapter[:title] %></a>
+            <a href="<%= meeting[:file] %>#<%= chapter[:id] %>"><%= chapter[:title] %></a>
           </li>
         <% end %>
       </ul>
@@ -584,8 +638,5 @@ html = ERB::new <<~EOF
   </body>
 </html>
 EOF
-# TODO: plausible
 
-File.write outname, html.result(binding)
-
-STDERR.puts "Used images: #{used_images.join " "}"
+File.write "index.html", html.result(binding)

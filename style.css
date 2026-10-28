@@ -4,18 +4,35 @@ bbody {
 }
 a {
     text-decoration: none;
+    font-weight: bold;
+    color: #b00;
+}
+a:hover, a:visited {
+    color: #700;
+}
+ul a {
+    font-weight: lighter;
+}
+.warning {
+    text-align: center;
+    color: #700;
+    background-color: #faa;
+    border: 2px solid #f00;
+    border-radius: 0.5rem;
+    margin: 2rem 0;
+    padding: 0.5rem 0;
 }
 h1, h2 {
     text-align: center;
 }
 article, nav {
-    margin: 2rem auto;
+    margin: 2rem auto 4rem;
     max-width: 60rem;
-    padding: 0;
+    padding: 1rem 0;
     background-color: #eee;
-    border: 1px solid #555;
-    border-radius: 0.3rem;
-    line-height: 180%;
+    border-radius: 1rem;
+    box-shadow: 0 0.3rem 1.5rem rgba(0, 0, 0, 0.3);
+    overflow: hidden;
 }
 nav ul {
     background-color: #fff;
@@ -40,18 +57,17 @@ aside {
     float: left;
     margin: 0 1rem 0 0;
     padding: 1px 0.5rem;
-    line-height: 100%;
 }
 .transcript {
-    margin: 1rem 4rem;
-    padding: 0 4rem;
+    margin: 1rem 8rem;
+    padding: 0;
+    line-height: 180%;
 }
 
 .poll {
     margin: 2rem 0;
     padding: 0;
     text-align: center;
-    line-height: 100%;
 }
 .poll img {
     max-width: 40rem;
@@ -65,10 +81,10 @@ aside {
     flex-wrap: no-wrap;
     justify-content: flex-start;
 }
-.poll .group.choice-yes {
+.poll .group.choice-yes, .vote .choice-yes {
     background-color: #afa;
 }
-.poll .group.choice-no {
+.poll .group.choice-no, .vote .choice-no {
     background-color: #faa;
 }
 .poll .group.choice-neutral {
@@ -80,31 +96,31 @@ aside {
 .poll .group.choice-recused {
     background-color: #999;
 }
-.choice-yes .meta {
+.choice-yes {
     color: #080;
 }
-.choice-yes .meta h4 {
+.choice-yes h4 {
     font-size: 150%;
 }
-.choice-no .meta {
+.choice-no {
     color: #a00;
 }
-.choice-no .meta h4 {
+.choice-no h4 {
     font-size: 150%;
 }
-.choice-neutral .meta {
+.choice-neutral {
     color: #990;
 }
 .poll .meta {
-    flex: 0 0 7rem;
+    flex: 0 0 8rem;
     vertical-align: top;
     text-align: center;
 }
 .poll .meta h4 {
-    margin: 0.5rem 0;
+    margin: 0.5rem 0 0.2rem;
 }
 .poll .meta .count {
-    margin: 0.5rem 0;
+    margin: 0.2rem 0 0.5rem;
 }
 .poll .voters {
     margin: 0.5rem;
@@ -121,7 +137,6 @@ aside {
     flex-direction: column;
     justify-content: space-between;
     text-align: center;
-    line-height: 100%;
 }
 .poll .voters li p {
     margin: 0.2rem 0;
@@ -130,4 +145,28 @@ aside {
 }
 .poll .voters li .person {
     font-weight: bold;
+}
+
+.resolution {
+    text-align: center;
+    margin: 2rem 0 -1rem;
+}
+.resolution .result {
+    font-size: 200%;
+    margin: 0 0 1rem;
+}
+.vote {
+    display: flex;
+    flex-wrap: no-wrap;
+}
+.vote .choice {
+    flex-shrink: 1;
+    flex-grow: 1;
+}
+.vote h4 {
+    font-size: 2rem;
+    margin: 1rem 0 0.2rem;
+}
+.vote .count {
+    margin: 0.2rem 0 1rem;
 }
