@@ -45,6 +45,27 @@ nav p {
 aside {
     text-align: center;
 }
+.agendaitems li {
+    display: flex;
+    margin: 0.2rem 0;
+}
+.agendaitems li a {
+    flex-shrink: 0;
+    flex-grow: 1;
+    flex-basis: 70%;
+}
+.agendaitems li .vote {
+    flex-shrink: 1;
+    flex-grow: 0;
+    flex-basis: 30%;
+    display: flex;
+    border-radius: 0.2rem 0 0 0.2rem;
+}
+.agendaitems li .vote .choice {
+    flex-shrink: 1;
+    flex-grow: 1;
+    text-align: center;
+}
 .timestamp {
     font-size: 80%;
     font-family: serif;
@@ -81,35 +102,35 @@ aside {
     flex-wrap: no-wrap;
     justify-content: flex-start;
 }
-.poll .group.choice-yes, .vote .choice-yes {
-    background-color: #afa;
+.poll .group.choice-yes, .vote .choice-yes, .agendaitems li .vote .choice-yes {
 }
-.poll .group.choice-no, .vote .choice-no {
-    background-color: #faa;
+.poll .group.choice-no, .vote .choice-no, .agendaitems li .vote .choice-no {
 }
 .poll .group.choice-neutral {
-    background-color: #ffa;
-}
-.poll .group.choice-absent {
-    background-color: #ccc;
-}
-.poll .group.choice-recused {
-    background-color: #999;
 }
 .choice-yes {
+    background-color: #afa;
     color: #080;
 }
 .choice-yes h4 {
     font-size: 150%;
 }
 .choice-no {
+    background-color: #faa;
     color: #a00;
 }
 .choice-no h4 {
     font-size: 150%;
 }
 .choice-neutral {
+    background-color: #ffa;
     color: #990;
+}
+.group.choice-absent {
+    background-color: #ccc;
+}
+.group.choice-recused {
+    background-color: #999;
 }
 .poll .meta {
     flex: 0 0 8rem;
@@ -158,6 +179,7 @@ aside {
 .vote {
     display: flex;
     flex-wrap: no-wrap;
+    align-items: start;
 }
 .vote .choice {
     flex-shrink: 1;
@@ -169,4 +191,11 @@ aside {
 }
 .vote .count {
     margin: 0.2rem 0 1rem;
+}
+footer {
+    text-align: center;
+}
+footer > p {
+    display: inline-block;
+    margin: 4rem 2rem 0;
 }
