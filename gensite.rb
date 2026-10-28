@@ -478,6 +478,8 @@ json["playlist_src"].each do |entry|
         <p><a href=".">🡄 Zurück</a></p>
 
         <h2>Inhaltsverzeichnis</h2>
+        <p><%= date %></p>
+
         <ul>
         <% summarized.each do |chapter| %>
           <li><a href="#agendaitem-<%= chapter[:agendaitem]["number"] %>"><%= chapter[:title] %></a></li>
@@ -494,7 +496,6 @@ json["playlist_src"].each do |entry|
       <% summarized.each do |chapter| %><article>
         <h2 id="agendaitem-<%= chapter[:agendaitem]["number"] %>"><%= chapter[:title] %></h2>
         <aside>
-          <p><%= date %></p>
           <% if chapter[:consultation] %>
             <p><a href="https://ratsinfo.dresden.de/vo0050.asp?__kvonr=<%= chapter[:consultation]["paper"].split("/").last %>">Tagesordnungspunkt im Ratsinformationssystem</a></p>
           <% end %>
