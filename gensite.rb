@@ -631,6 +631,15 @@ html = ERB::new <<~EOF
       </ul>
     </article><% end %>
 
+    <footer>
+      <p>
+        <a href="https://github.com/offenesdresden/stadtrat">Source</a>
+      </p>
+      <p>
+        <a href="https://c3d2.de/impressum.html">Impressum</a>
+      </p>
+    </footer>
+
     <script async src="https://p.spaceboyz.net/js/pa-qkRTn7-wuUolWOW2bxD9E.js"></script>
     <script>
       window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};

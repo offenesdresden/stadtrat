@@ -170,3 +170,10 @@ aside {
 .vote .count {
     margin: 0.2rem 0 1rem;
 }
+footer {
+    text-align: center;
+}
+footer > p {
+    display: inline-block;
+    margin: 4rem 2rem 0;
+}
