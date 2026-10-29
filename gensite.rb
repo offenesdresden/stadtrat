@@ -68,6 +68,8 @@ def format_time(time)
   result
 end
 
+NBSP = 160.chr("UTF-8")
+
 def plural(n, unit)
   if n != 1
     unit = case unit
@@ -77,7 +79,7 @@ def plural(n, unit)
              "#{unit}s"
            end
   end
-  "#{n} #{unit}"
+  "#{n}#{NBSP}#{unit}"
 end
 
 class Subtitle
@@ -569,10 +571,11 @@ json["playlist_src"].each do |entry|
           </div>
         <% end %>
 
-        <footer>
-          <p><a href=".">🡄 Übersicht</a></p>
-        </footer>
       </article><% end %>
+
+      <footer>
+        <p><a href=".">🡄 Übersicht</a></p>
+      </footer>
 
       <script async src="https://p.spaceboyz.net/js/pa-qkRTn7-wuUolWOW2bxD9E.js"></script>
       <script>
