@@ -470,15 +470,21 @@ json["playlist_src"].each do |entry|
       <meta charset="utf-8">
       <title><%= oparl_meeting["name"] %></title>
       <link rel="stylesheet" title="Default" type="text/css" href="style.css">
+      <meta name="viewport" content="width=device-width"/>
+      <meta name="fediverse:creator" content="@astro@c3d2.social"/>
     </head>
     <body>
       <h1><%= oparl_meeting["name"] %></h1>
 
+      <aside>
+        <p><a href="https://ratsinfo.dresden.de/si0056.asp?__ksinr=<%= oparl_meeting["id"].split("/").last %>">Sitzung im Ratsinformationssystem</a></p>
+        <p><%= date %></p>
+      </aside>
+
       <nav>
-        <p><a href=".">🡄 Zurück</a></p>
+        <p><a href=".">🡄 Übersicht</a></p>
 
         <h2>Inhaltsverzeichnis</h2>
-        <p><%= date %></p>
 
         <ul>
         <% summarized.each do |chapter| %>
@@ -562,6 +568,10 @@ json["playlist_src"].each do |entry|
             <% end %>
           </div>
         <% end %>
+
+        <footer>
+          <p><a href=".">🡄 Übersicht</a></p>
+        </footer>
       </article><% end %>
 
       <script async src="https://p.spaceboyz.net/js/pa-qkRTn7-wuUolWOW2bxD9E.js"></script>
@@ -609,6 +619,8 @@ html = ERB::new <<~EOF
     <meta charset="utf-8">
     <title>Stadtratssitzungen</title>
     <link rel="stylesheet" title="Default" type="text/css" href="style.css">
+    <meta name="viewport" content="width=device-width"/>
+    <meta name="fediverse:creator" content="@astro@c3d2.social"/>
   </head>
   <body>
     <h1>Stadtratssitzungen</h1>

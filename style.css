@@ -179,6 +179,7 @@ aside {
 .vote {
     display: flex;
     flex-wrap: no-wrap;
+    align-items: start;
 }
 .vote .choice {
     flex-shrink: 1;
