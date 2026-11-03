@@ -38,6 +38,9 @@ article, nav {
     box-shadow: 0 0.3rem 1.5rem rgba(0, 0, 0, 0.3);
     overflow: hidden;
 }
+article .date {
+    text-align: center;
+}
 nav ul {
     margin: 2rem 0;
     padding: 2rem 2rem;

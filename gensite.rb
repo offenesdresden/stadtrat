@@ -479,8 +479,14 @@ json["playlist_src"].each do |entry|
       <h1><%= oparl_meeting["name"] %></h1>
 
       <aside>
-        <p><a href="https://ratsinfo.dresden.de/si0056.asp?__ksinr=<%= oparl_meeting["id"].split("/").last %>">Sitzung im Ratsinformationssystem</a></p>
         <p><%= date %></p>
+        <p><a href="https://ratsinfo.dresden.de/si0056.asp?__ksinr=<%= oparl_meeting["id"].split("/").last %>">Sitzung im Ratsinformationssystem</a></p>
+
+        <% videos.each do |video| %>
+          <p class="video-link">
+            <a href="<%= video["src"] %>" type="<%= video["type"] %>">Videodatei</a>
+          </p>
+        <% end %>
       </aside>
 
       <nav>
@@ -488,17 +494,22 @@ json["playlist_src"].each do |entry|
 
         <h2>Inhaltsverzeichnis</h2>
 
-        <ul>
-        <% summarized.each do |chapter| %>
-          <li><a href="#agendaitem-<%= chapter[:agendaitem]["number"] %>"><%= chapter[:title] %></a></li>
-        <% end %>
+        <ul class="agendaitems">
+          <% summarized.each do |chapter| %>
+            <li>
+              <a href="#agendaitem-<%= chapter[:agendaitem]["number"] %>"><%= chapter[:title] %></a>
+              <% if chapter[:agendaitem]["vote"] %>
+                <span class="vote">
+                  <% %w(yes no).select { |choice| chapter[:agendaitem]["vote"][choice] > 0 }.each do |choice| %>
+                    <span class="choice choice-<%= choice %>" style="flex-basis: <%= (100.0 * chapter[:agendaitem]["vote"][choice] / (chapter[:agendaitem]["vote"]["yes"] + chapter[:agendaitem]["vote"]["no"])).round %>%">
+                      <%= chapter[:agendaitem]["vote"][choice] %>
+                    </span>
+                  <% end %>
+                </span>
+              <% end %>
+            </li>
+          <% end %>
         </ul>
-
-        <% videos.each do |video| %>
-          <p class="video-link">
-            <a href="<%= video["src"] %>" type="<%= video["type"] %>">Videodatei</a>
-          </p>
-        <% end %>
       </nav>
 
       <% summarized.each do |chapter| %><article>
@@ -602,6 +613,7 @@ json["playlist_src"].each do |entry|
 
   index << {
     :name => oparl_meeting["name"],
+    :date => date,
     :file => outname,
     :chapters => summarized.map { |chapter|
       {
@@ -632,12 +644,15 @@ html = ERB::new <<~EOF
       Alle Inhalte wurden maschinell erfasst und sind deshalb ohne Gewähr.
     </p>
 
-     <% index.each do |meeting| %><article>
+    <% index.each do |meeting| %><article>
       <h2>
         <a href="<%= meeting[:file] %>">
           <%= meeting[:name] %>
         </a>
       </h2>
+      <p class="date">
+        <%= meeting[:date] %>
+      </p>
 
       <ul class="agendaitems">
         <% meeting[:chapters].each do |chapter| %>
