@@ -85,6 +85,16 @@ aside {
     padding: 0;
     line-height: 180%;
 }
+@media (width < 50rem) {
+    .transcript {
+        margin: 1rem 2rem;
+    }
+}
+@media (width < 40rem) {
+    .transcript {
+        margin: 1rem 0 1rem 1rem;
+    }
+}
 
 .poll {
     margin: 2rem 0;
