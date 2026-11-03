@@ -1,5 +1,9 @@
-bbody {
-    background-color: #c7c7c7;
+:root {
+    color-scheme: light dark;
+}
+body {
+    background-color: light-dark(#e7e7e7, #272727);
+    color: light-dark(#000, #fff);
     font-family: sans-serif;
 }
 a {
@@ -11,12 +15,12 @@ a:hover, a:visited {
     color: #700;
 }
 ul a {
-    font-weight: lighter;
+    font-weight: normal;
 }
 .warning {
     text-align: center;
-    color: #700;
-    background-color: #faa;
+    color: light-dark(#700, #f22);
+    background-color: light-dark(#faa, #722);
     border: 2px solid #f00;
     border-radius: 0.5rem;
     margin: 2rem 0;
@@ -29,13 +33,15 @@ article, nav {
     margin: 2rem auto 4rem;
     max-width: 60rem;
     padding: 1rem 0;
-    background-color: #eee;
+    background-color: light-dark(#f7f7f7, #000);
     border-radius: 1rem;
     box-shadow: 0 0.3rem 1.5rem rgba(0, 0, 0, 0.3);
     overflow: hidden;
 }
+article .date {
+    text-align: center;
+}
 nav ul {
-    background-color: #fff;
     margin: 2rem 0;
     padding: 2rem 2rem;
 }
@@ -71,18 +77,29 @@ aside {
     font-family: serif;
     letter-spacing: 0.2rem;
     text-align: center;
-    color: #aaa;
+    color: light-dark(#aaa, #444);
     margin: 2rem;
 }
 .speaker {
     float: left;
     margin: 0 1rem 0 0;
-    padding: 1px 0.5rem;
+    padding: 2px 0.5rem;
+    line-height: 100%;
 }
 .transcript {
     margin: 1rem 8rem;
     padding: 0;
     line-height: 180%;
+}
+@media (width < 50rem) {
+    .transcript {
+        margin: 1rem 2rem;
+    }
+}
+@media (width < 40rem) {
+    .transcript {
+        margin: 1rem 0 1rem 1rem;
+    }
 }
 
 .poll {
@@ -102,29 +119,23 @@ aside {
     flex-wrap: no-wrap;
     justify-content: flex-start;
 }
-.poll .group.choice-yes, .vote .choice-yes, .agendaitems li .vote .choice-yes {
-}
-.poll .group.choice-no, .vote .choice-no, .agendaitems li .vote .choice-no {
-}
-.poll .group.choice-neutral {
-}
 .choice-yes {
-    background-color: #afa;
-    color: #080;
+    background-color: light-dark(#afa, #030);
+    color: light-dark(#070, #3f3);
 }
 .choice-yes h4 {
     font-size: 150%;
 }
 .choice-no {
-    background-color: #faa;
-    color: #a00;
+    background-color: light-dark(#faa, #300);
+    color: light-dark(#a00, #f77);
 }
 .choice-no h4 {
     font-size: 150%;
 }
 .choice-neutral {
-    background-color: #ffa;
-    color: #990;
+    background-color: light-dark(#ffa, #330);
+    color: light-dark(#990, #ff0);
 }
 .group.choice-absent {
     background-color: #ccc;
