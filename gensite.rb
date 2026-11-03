@@ -202,9 +202,9 @@ class Meeting
                        .last
       PEOPLE.find { |person| person.title == person_title }
     end
-    # Interpolate unknown persons by speaker identified through diarization.
+    # Reassign person by speaker identified through diarization.
     personalized_transcript.each do |subtitle|
-      if not(subtitle.person.kind_of? Person) and subtitle.speaker and known_speakers[subtitle.speaker]
+      if subtitle.speaker and known_speakers[subtitle.speaker]
         subtitle.person = known_speakers[subtitle.speaker]
       end
     end
