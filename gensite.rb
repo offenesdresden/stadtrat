@@ -247,8 +247,8 @@ class Meeting
 
         if transcripts.last and transcripts.last[:kind] == :transcript and transcripts.last[:person] == subtitle.person
           prev_subtitle = transcripts.last[:subtitles].last
-          if prev_subtitle.stop >= subtitle.start - 1 or
-            (prev_subtitle.stop >= subtitle.start - 4 and not(prev_subtitle.text =~ /\.$/m))
+          if prev_subtitle.stop >= subtitle.start - 0.5 or
+            (prev_subtitle.stop >= subtitle.start - 8 and not(prev_subtitle.text =~ /\.$/m))
             # Concatenate paragraph
             prev_subtitle.stop = subtitle.stop
             prev_subtitle.lines += subtitle.lines
