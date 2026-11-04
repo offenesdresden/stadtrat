@@ -222,10 +222,6 @@ class Meeting
         }[0]
       end
 
-      if agendaitem["consultation"]
-        consultation = JSON.parse File::read(RATSINFO_DATA + "/consultations/" + agendaitem["consultation"].split("/").last + ".json")
-      end
-
       chapter_polls = polls.select { |poll|
         poll.time >= chapter.start and poll.time < chapter.stop
       }
@@ -281,7 +277,6 @@ class Meeting
       
       { :title => chapter.text,
         :agendaitem => agendaitem,
-        :consultation => consultation,
         :transcripts => transcripts,
       }
     end
@@ -515,8 +510,12 @@ json["playlist_src"].each do |entry|
       <% summarized.each do |chapter| %><article>
         <h2 id="agendaitem-<%= chapter[:agendaitem]["number"] %>"><%= chapter[:title] %></h2>
         <aside>
-          <% if chapter[:consultation] %>
-            <p><a href="https://ratsinfo.dresden.de/vo0050.asp?__kvonr=<%= chapter[:consultation]["paper"].split("/").last %>">Tagesordnungspunkt im Ratsinformationssystem</a></p>
+          <% if chapter[:agendaitem] %>
+            <p>
+              <a href="https://ratsinfo.dresden.de/to0050.asp?__ktonr=<%= chapter[:agendaitem]["id"].split("/").last %>">
+                Tagesordnungspunkt im Ratsinformationssystem
+              </a>
+            </p>
           <% end %>
         </aside>
 
